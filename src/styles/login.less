@@ -1,0 +1,68 @@
+
+@import url('../templates/colors.less');
+
+body{
+	overflow-x:hidden; 
+  height: 100%;
+  width: 100%;
+  font-size: 100%;
+  line-height: 1;
+  font-size: 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: @color-bg;
+  color: @color-text;
+}
+.container {
+	flex-grow: 1;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	
+
+
+}
+.wrapper{
+	background-color: @color-search;
+		
+	border-radius: 16px;
+	align-self: center;	
+	max-width: 400px;
+	max-height: 400px;
+	justify-content: center;
+	
+}
+form{
+	margin: 20px 0;
+}
+input{
+	min-width: 320px;
+	display: block;
+	
+	font-size: 15px;
+	padding: 10px 0;
+	border: 1px ;
+	background: #F6F6f6;
+	border-radius: 8px;
+	margin: 10px;
+
+}
+#log:hover{
+transition: all 100ms ease-out;
+ color: @color-blue;
+ background-color: @color-sb;
+
+}
+.change_link{
+text-align:center;
+font-size: 20px;
+	a{	
+		 color: @color-blue;
+	}
+	a:hover{
+		transition: all 100ms ease-out;	
+		 color: @color-sb;
+
+	}
+}

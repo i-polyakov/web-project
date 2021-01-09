@@ -1,0 +1,43 @@
+<!-- Сообщаем браузеру как стоит обрабатывать эту страницу -->
+<!DOCTYPE html>
+<!-- Оболочка документа, указываем язык содержимого -->
+<html lang="ru">
+    <!-- Заголовок страницы, контейнер для других важных данных (не отображается) -->
+    <head>
+        <!-- Заголовок страницы в браузере -->
+        <title>Films finder</title>
+        <!-- Подключаем CSS -->
+        <link rel="stylesheet" href="/src/styles/login.css" />
+        <link rel="shortcut icon" href="/src/icons/logo.svg" type="image/svg">
+        
+        <!-- Кодировка страницы -->
+        <meta  charset="UTF-8" />
+
+    </head>
+    <body>
+         
+     <p><%= message.error %></p>
+      
+        <div class="container">	   
+            <div class="wrapper">
+                <div id="login" class="animate form">
+                    <form  action="login" autocomplete="off" method="POST">               
+                       <%= error_messages %>
+                            <input id="username" name="username" required="required" type="text" placeholder="  Логин "/>
+
+                            <input id="password" name="password" required="required" type="password" placeholder="  Пароль" /> 
+          
+                            <input id="log" type="submit"  value="Войти" /> 
+					
+                            <p class="change_link">
+    							Нет аккаунта?
+    							<a href="register" class="to_register">Зарегистрироваться</a>
+    						</p>
+                    </form>
+                </div>
+				
+            </div>
+        </div>
+    
+    </body>
+</html>
