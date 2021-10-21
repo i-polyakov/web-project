@@ -1,5 +1,5 @@
 const LocalStrategy = require("passport-local").Strategy;
-const  db  = require("../db");
+//const  db  = require("../db");
 const passport = require('passport');
 const bcrypt = require("bcrypt");
 const flash = require("express-flash");
@@ -27,8 +27,8 @@ class MenuController {
     res.render(__dirname + "/../src/ejs/about.ejs",{ user: req.user });
   }
  async searchPage(req, res) {
- 
-   res.render(__dirname + "/../src/ejs/search.ejs",{ user: req.user, search: req.query.search });
+ res.json({user: req.user, search: req.query.search});
+  // res.render(__dirname + "/../src/ejs/search.ejs",{ user: req.user, search: req.query.search });
 
 }
 }

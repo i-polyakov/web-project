@@ -1,161 +1,331 @@
-const LocalStrategy = require("passport-local").Strategy;
-const  db  = require("../db");
-const passport = require('passport');
-const bcrypt = require("bcrypt");
-const flash = require("express-flash");
 
+const User = require("../db/users.js");
+const Film = require("../db/films.js");
+const Users_films = require("../db/users_films.js");
+const Sequelize = require("sequelize");
+const Op = Sequelize.Op
+
+const postgres_logs = require("../db/mongo/postgres_logs");
 
 class FilmsController {
+  async getOrderFilms(req, res) {//order year, limit 20
+   Film.findAll({
+    limit: 20,
+    order:[
+      ['year', 'DESC'],
+    ]
+   }).then(films=>{
+    postgres_logs(req.user.login,"SELECT","films",null);
+      res.json(films);
 
-  async getFilmsByName(req, res) {  
+   }).catch(err=>{
+    postgres_logs(req.user.login,"SELECT","films",err);
+    console.log(err);
+        });
+ }
+ 
+//-----------user----------//
+async getFilmsByName(req, res) {  //search
+
     let name=req.body.search;
-   // console.log(name);
-     db.query(
-        `SELECT * FROM films
-         WHERE name  LIKE $1`, ['%'+name+'%'], (err, results) => {
-          if (err) 
-           console.log(err);
-            res.json( results.rows);
-        
-     });
+    if(!name)
+      return  res.json({messages: "Пустой запрос!"});
+    Film.findAll({
+      where:{
+        name:{
+          [Op.substring]: name
+        }
+      }
+    }).then(films=>{
+      postgres_logs(req.user.login,"SELECT","films",null);
+      if(films.length>0)
+        res.json( films);
+    else
+        res.json({messages: "Фильм не найден!"});
+    }).catch(err=>{
+      postgres_logs(req.user.login,"SELECT","films",err);
+      console.log(err);
+          });
+    
 
-  }
-
-  async getOrderFilms(req, res) {
-   
-   db.query(
-        `SELECT * FROM films
-         ORDER BY  year DESC LIMIT 20`, (err, results) => {
-          if (err) {
-           throw err;
-          }
-     // console.log(results.rows);
-     res.json( results.rows);
-
-
-    });
 }
-
-  async watchFilm(req, res) {
-
-      let film_id=req.body.film_id;
-      let user_id=req.user.id;
-   db.query(
-        `DELETE FROM users_films
-         WHERE user_id = $1 AND film_id=$2  RETURNING *`, [user_id,film_id], (err, results) => {
-          if (err) 
-           throw err;
-          
-          if (results.rows.length > 0) 
-            res.json(false );
-          else{
-     db.query(
-
-       `INSERT INTO users_films (user_id, film_id,status)
-                  VALUES ($1, $2,$3)
-                  RETURNING *`,
-       [ user_id, film_id,false], (err, results) => {
-          if (err) 
-           console.log(err);
-
-            res.json( true);
-          
+ 
+async watchFilms(req, res) {
+    User.findOne({
+      where:{
+        id:req.user.id
+      }, 
+      include: [
+        { model: Film,         
+          through: { 
+            attributes: ['status'] , 
+            where:{
+              status:'false'
             }
-            );
           }
         }
-      );
-  }
-
-
-async changeStatusFilm(req, res) {
-
-      let film_id=req.body.film_id;
-      let user_id=req.user.id;
-      let filmStatus=req.body.filmStatus;
-      //console.log("film_id: "+film_id);
-      db.query(
-        `SElECT * FROM users_films
-         WHERE user_id = $1 AND film_id=$2`, [user_id,film_id], (err, results) => {
-          if (err) 
-           throw err;
-          //console.log(results.rows.length > 0&&filmStatus!=results.rows[0].status);
-          if (results.rows.length > 0&&filmStatus!=results.rows[0].status) {
-                 db.query(
-                 `UPDATE users_films SET status = $3 WHERE user_id = $1 AND film_id=$2
-                            RETURNING *`,
-                  [user_id,film_id,filmStatus], (err, results) => {
-                    if (err) 
-                     console.log(err);
-
-                     //console.log("1:"+results.rows[0].status);
-                       res.json({status: results.rows[0].status });
-                    
-                      });
-                   
-          }
-          else if(results.rows.length > 0){
-
-                 db.query(
-            `DELETE FROM users_films
-             WHERE user_id = $1 AND film_id=$2  RETURNING *`, [user_id,film_id], (err, results) => {
-              if (err) 
-               throw err;
-              // console.log("2:"+results.rows[0].status);
-             res.json({status: results.rows[0].status });
-            
-              });
-           }
-          else{
-         db.query(
-
-           `INSERT INTO users_films (user_id, film_id,status)
-                      VALUES ($1, $2,$3)
-                      RETURNING *`,
-           [ user_id, film_id,filmStatus], (err, results) => {
-              if (err) 
-               console.log(err);
-              //console.log("3:"+results.rows[0].status);
-                res.json({status: results.rows[0].status });
-              
-                }
-                );
-          }
-        }
-      );
-  }
-   async watchFilms(req, res) {
-
-      let user_id=req.user.id;
-      db.query(
-        `SELECT films.* FROM users_films, films
-         WHERE  user_id = $1  AND users_films.film_id=films.id  AND status=false`,[user_id] ,(err, results) => {
-          if (err) {
-           throw err;
-          }
-      //console.log(results.rows);
-     res.json( results.rows);
-
-
+      ]
+     
+    })
+    .then(user=>{
+      postgres_logs(req.user.login,"SELECT","users",null);
+      if(user.films.length>0)
+       res.json( user.films);
+      else
+       res.json({messages: "Список пока пуст"});
+    }).catch(err=>{
+      postgres_logs(req.user.login,"SELECT","films",err);
+      console.log(err);
     });
 
+
+
+
 }
-   async getViewedFilms(req, res) {
+async ViewedFilms(req, res) {
+    User.findOne({
+      where:{
+        id:req.user.id
+      }, 
+      include: [
+        { model: Film,         
+          through: { 
+            attributes: ['status'] , 
+            where:{
+              status:'true'
+            }
+          }
+        }
+      ]
+     
+    })
+    .then(user=>{
+      postgres_logs(req.user.login,"SELECT","users",null);
+      if(user.films.length>0)
+       res.json( user.films);
+      else
+       res.json({messages: "Список пока пуст"});
+    }).catch(err=>{
+      postgres_logs(req.user.login,"SELECT","users",null);
+      console.log(err);
+    });
+
+
+}
+
+async watchFilm(req, res) {
+  Film.findByPk(req.body.film.id).then(film=>{
+    postgres_logs(req.user.login,"SELECT","films",null);
+    if(film)
+  Users_films.findOne({
+    where:{ 
+      user_id:req.user.id,
+      film_id:req.body.film.id
+      
+    }
+  }).then(users_films=>{
+    postgres_logs(req.user.login,"SELECT","users_films",null);
+    if(!users_films){
+     
+      Users_films.create({
+        user_id:req.user.id,
+        film_id:req.body.film.id,
+        status:false
+
+      }).then(users_films=>{
+        postgres_logs(req.user.login,"INSERT","users_films",users_films);
+        res.json(users_films )});
+    }
+    else
+    {
+      users_films.update({status:false}).then(users_films=>{
+        postgres_logs(req.user.login,"UPDATE","users_films",users_films);
+        res.json(users_films )});
+    }
+  });
+  else
+  res.status(404).json({
+            "error_messages":" Фильм не найден!"
+         });
+        })
+  .catch(err=>{
+    postgres_logs(req.user.login,"SELECT","users",err);
+    console.log(err);
+  });
+
+
+}
+async unwatchFilm(req, res) {
+
+  Users_films.destroy({                                                                                                                                                     
+    where:{ 
+      user_id:req.user.id,
+      film_id:req.body.film.id,
+      status:false
+      
+    }
+  }).then(row=>{
+    postgres_logs(req.user.login,"DELETE","users_films",null);
+        res.json({
+          "rows_deleted":row
+         });
   
-    let user_id=req.user.id;
-      db.query(
-        `SELECT films.* FROM users_films, films
-         WHERE  user_id = $1 AND users_films.film_id=films.id AND status=true`,[user_id],  (err, results) => {
-          if (err) {
-           throw err;
-          }
-      //console.log(results.rows);
-     res.json( results.rows);
+  }).catch(err=>{
+    
+    postgres_logs(req.user.login,"DELETE","users_films",err);
+      console.log(err);
+          });
 
-
-    });
 
 }
+
+async viewedFilm(req, res) {
+
+  Film.findByPk(req.body.film.id).then(film=>{
+    postgres_logs(req.user.login,"SELECT","films",null);
+    if(film)
+    Users_films.findOne({
+      where:{ 
+        user_id:req.user.id,
+        film_id:req.body.film.id
+        
+      }
+    }).then(users_films=>{
+      postgres_logs(req.user.login,"SELECT","user_films",null);
+      if(!users_films){
+      
+        Users_films.create({
+          user_id:req.user.id,
+          film_id:req.body.film.id,
+          status:true
+
+        }).then(users_films=>{
+          postgres_logs(req.user.login,"INSERT","user_films",users_films);
+          res.json(users_films )});
+      }
+      else
+      {
+        users_films.update({status:true}).then(users_films=>{
+          postgres_logs(req.user.login,"UPDATE","user_films",users_films);
+          res.json(users_films )});
+      }
+    });
+    else
+    res.status(404).json({
+              "error_messages":" Фильм не найден!"
+           });
+  }) .catch(err=>{
+    postgres_logs(req.user.login,"SELECT","user_films",err);
+    console.log(err);
+        });
+}
+async unviewedFilm(req, res) {
+  Users_films.destroy({                                                                                                                                                     
+    where:{ 
+      user_id:req.user.id,
+      film_id:req.body.film.id,
+      status:true
+      
+    }
+  }).then(row=>{
+    postgres_logs(req.user.login,"DELETE","user_films",null);
+        res.json({
+          "rows_deleted":row
+         });
+  
+  }).catch(err=>{
+      console.log(err);
+          });
+
+}
+//-----------moder----------//
+async addFilm(req, res) {//moder
+
+  Film.findOrCreate({where:{ 
+      "name": req.body.film.name,
+      "year": req.body.film.year,
+      "genre": req.body.film.genre,
+      "director": req.body.film.director,
+      "country": req.body.film.country,
+      "poster": req.body.film.poster,
+      "description": req.body.film.description
+
+
+    }}).then((result)=>{
+      var created=result[1];
+      var film=result[0];
+      console.log(film);
+    if(created){
+      postgres_logs(req.user.login,"INSERT","films",film);
+      res.json({
+        "messages":"Фильм добавлен в бд!"
+  
+      ,"film":film.dataValues});
+      
+    }
+    else
+    {
+      postgres_logs(req.user.login,"SELECT","films",null);
+        res.json({
+          "messages":" Фильм уже был добавлен!"
+        } );
+    }
+  }).catch(err=>{
+    postgres_logs(req.user.login,"SELECT","films",err);
+      console.log(err);
+          });
+        
+}
+async updateFilm(req, res) {//moder
+  
+  Film.findOne({
+    where:{ 
+    id:req.params.id     
+    }
+  }).then(film=>{
+    postgres_logs(req.user.login,"SELECT","films",null);
+    if(!film){
+      res.status(404).json({
+        "error_messages":"Не нашел фильм!"
+  
+      });
+      
+    }
+    else
+    {
+      film.update(req.body.film).then(film=>{
+        postgres_logs(req.user.login,"UPDATE","films",film);
+        res.json({
+          "messages":" Фильм обновлен!"
+        } )});
+    }
+  }).catch(err=>{
+    postgres_logs(req.user.login,"SELECT","films",err);
+      console.log(err);
+          });
+        
+}
+async deleteFilm(req, res) {//moder
+ 
+  Film.destroy({                                                                                                                                                     
+    where:{ 
+      id:req.params.id     
+      }
+  }).then(row=>{
+    postgres_logs(req.user.login,"DELETE","films",null);
+        res.json({
+          "rows_deleted":row
+         });
+  
+  }).catch(err=>{
+    postgres_logs(req.user.login,"DELETE","films",err);
+      console.log(err);
+          });
+        
+}
+
+//-----------admin----------//
+
   async upRating(req, res) {
 
     let film_id=req.body.film_id;
@@ -186,7 +356,6 @@ async changeStatusFilm(req, res) {
   });
 
 }
-
   async downRating(req, res) {
 
   
@@ -216,6 +385,7 @@ async changeStatusFilm(req, res) {
 
   });
 }
+
 async filmStatistics(req, res) {
 
    let film_id=req.body.film_id;
@@ -270,6 +440,63 @@ async filmStatistics(req, res) {
 
 
 }
+async changeStatusFilm(req, res) {
+
+  let film_id=req.body.film_id;
+  let user_id=req.user.id;
+  let filmStatus=req.body.filmStatus;
+  //console.log("film_id: "+film_id);
+  db.query(
+    `SElECT * FROM users_films
+     WHERE user_id = $1 AND film_id=$2`, [user_id,film_id], (err, results) => {
+      if (err) 
+       throw err;
+      //console.log(results.rows.length > 0&&filmStatus!=results.rows[0].status);
+      if (results.rows.length > 0&&filmStatus!=results.rows[0].status) {
+             db.query(
+             `UPDATE users_films SET status = $3 WHERE user_id = $1 AND film_id=$2
+                        RETURNING *`,
+              [user_id,film_id,filmStatus], (err, results) => {
+                if (err) 
+                 console.log(err);
+
+                 //console.log("1:"+results.rows[0].status);
+                   res.json({status: results.rows[0].status });
+                
+                  });
+               
+      }
+      else if(results.rows.length > 0){
+
+             db.query(
+        `DELETE FROM users_films
+         WHERE user_id = $1 AND film_id=$2  RETURNING *`, [user_id,film_id], (err, results) => {
+          if (err) 
+           throw err;
+          // console.log("2:"+results.rows[0].status);
+         res.json({status: results.rows[0].status });
+        
+          });
+       }
+      else{
+     db.query(
+
+       `INSERT INTO users_films (user_id, film_id,status)
+                  VALUES ($1, $2,$3)
+                  RETURNING *`,
+       [ user_id, film_id,filmStatus], (err, results) => {
+          if (err) 
+           console.log(err);
+          //console.log("3:"+results.rows[0].status);
+            res.json({status: results.rows[0].status });
+          
+            }
+            );
+      }
+    }
+  );
+}
+
 async checkStatusFilm(req, res) {
 
     let film_id=req.body.film_id;
@@ -290,23 +517,6 @@ async checkStatusFilm(req, res) {
 
   });
 
-}
-
-
-
-async unviewedFilm(req, res) {
-
-    let film_id=req.body.film_id;
-    let user_id=req.user.id;
-
-     db.query(
-          `DELETE FROM users_films
-           WHERE user_id = $1 AND film_id=$2  RETURNING *`, [user_id,film_id], (err, results) => {
-            if (err) 
-             throw err;
-           res.json( results.rows[0]);
-          
-            });
 }
 
 async getFilm(req, res) {

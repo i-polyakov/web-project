@@ -4,13 +4,16 @@ const flash = require("express-flash");
 const session = require("express-session");
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
+
 const AuthenticateRouter=  require("./routes/AuthenticateRouter");
 const MenuRouter=  require("./routes/MenuRouter");
 const FilmsRouter=  require("./routes/FilmsRouter");
+const UsersRouter=  require("./routes/UsersRouter");
+
+const http_logs = require("./db/mongo/http_logs");
 require("dotenv").config();
-
+  
 const PORT = process.env.PORT || 8080;
-
 
 const app = express();
 
@@ -47,14 +50,16 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // parse application/json
 app.use(bodyParser.json())
-app.set("view engine", "ejs");
+.set("view engine", "ejs");
 
-
+app.use(http_logs);
 app.use('/',AuthenticateRouter);
 app.use('/',MenuRouter);
 app.use('/',FilmsRouter);
+app.use('/',UsersRouter);
 
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+module.exports =app;
